@@ -1,8 +1,6 @@
 streamlit
 pandas
 mysql-connector-python
-requests
 python-dotenv
-matplotlib
-seaborn
-reportlab
+google-genai
+fpdf
