@@ -17,11 +17,6 @@ DB_CONFIG = {
 # File Paths for Logging & Reports
 FILE_PATHS = {
     "logs": os.getenv("LOG_FILE"),
-    "reports": os.getenv("REPORTS_FOLDER")
-}
-
-# Default App Settings
-DEFAULT_PREFERENCES = {
-    "currency": os.getenv("DEFAULT_CURRENCY", "USD"),
-    "budget_notification": os.getenv("BUDGET_NOTIFICATIONS", "True") == "True"
+    "reports": os.getenv("REPORTSgit _FOLDER"),
+    "receipts": os.getenv("RECEIPTS_FOLDER")
 }

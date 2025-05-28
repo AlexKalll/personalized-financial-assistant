@@ -3,3 +3,5 @@ data/
 .env
 logs.txt
 __pycache__
+ztrialsrc/
+test_env.py
