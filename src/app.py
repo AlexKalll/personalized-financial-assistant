@@ -319,12 +319,12 @@ def generate_transaction_receipt(transaction_id: int) -> Dict[str, Union[int, fl
         transaction_id (int): The unique identifier of the transaction.
 
     Returns:
-        dict: A dictionary containing receipt details (transaction_id, user_id, date,
+        dict: A dictionary containing receipt details (user_full_name, transaction_id, user_id, date,
               amount, payment_method, description, receipt_path) or an error message.
 
     Example:
         >>> generate_transaction_receipt(123)
-        {
+        {   'user_full_name': 'John Doe',
             'transaction_id': 123,
             'user_id': 7,
             'date': '2025-05-27',
@@ -342,12 +342,17 @@ def generate_transaction_receipt(transaction_id: int) -> Dict[str, Union[int, fl
     cursor.execute("SELECT * FROM Transactions WHERE transaction_id = %s", (transaction_id,))
     transaction = cursor.fetchone()
     cursor.close()
-    db.close()
 
     if not transaction:
         return {"error": f"No transaction found with ID {transaction_id}."}
 
     user_id = transaction["user_id"]
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT fname, lname FROM Users WHERE user_id = %s", (user_id,))
+    user = cursor.fetchone()
+    cursor.close()
+    db.close()
+    user_full_name = f"{user['fname']} {user['lname']}"
     date = transaction["date"].strftime("%Y-%m-%d")  # Convert date to string
     amount = float(transaction["amount"])  # Convert Decimal to float
     payment_method = transaction["payment_method"]
@@ -356,9 +361,10 @@ def generate_transaction_receipt(transaction_id: int) -> Dict[str, Union[int, fl
     receipt_filename = f"workflows/receipts/user{user_id}-transaction{transaction_id}-receipt.pdf"
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(200, 10, "Transaction Receipt", ln=True, align="C")
+    pdf.set_font("Arial", "B", 20)
+    pdf.cell(200, 10, "Transaction Receipt", ln=True)
     pdf.set_font("Arial", "", 12)
+    pdf.cell(200, 10, f"User: {user_full_name}", ln=True)
     pdf.cell(200, 10, f"Transaction ID: {transaction_id}", ln=True)
     pdf.cell(200, 10, f"User ID: {user_id}", ln=True)
     pdf.cell(200, 10, f"Date: {date}", ln=True)
@@ -366,10 +372,14 @@ def generate_transaction_receipt(transaction_id: int) -> Dict[str, Union[int, fl
     pdf.cell(200, 10, f"Payment Method: {payment_method}", ln=True)
     pdf.cell(200, 10, f"Description: {description}", ln=True)
     pdf.cell(200, 10, "", ln=True)
-    pdf.cell(200, 10, "Thank you for your transaction!", ln=True, align="C")
+    pdf.cell(200, 10, "", ln=True)
+    pdf.cell(200, 10, "Sincerly,", ln=True)
+    pdf.cell(200, 10, "Dr. Abebe", ln=True)
+    pdf.cell(200, 10, f"{payment_method} Manager", ln=True)
     pdf.output(receipt_filename)
 
     return {
+        "user_full_name": user_full_name,
         "transaction_id": transaction_id,
         "user_id": user_id,
         "date": date,
@@ -453,7 +463,7 @@ def user_profile_page():
     st.title("👤 User Profile Explorer")
     st.caption("Try queries like: `Show me the profile of user 1` or `Details of user 3`")
 
-    prompt = st.text_input("🔍 Enter your query:")
+    prompt = st.text_input("Enter a query to show a user profile:")
     if st.button("Show Profile"):
         user_id = extract_user_id(prompt)
         if not user_id:
@@ -472,7 +482,7 @@ def user_profile_page():
                 - A brief welcome message
                 """
             )
-            st.markdown("### 🌟 Gemini’s Response")
+            st.markdown("### Gemini’s Response")
             st.info(gemini_response.text)
 
 def spending_analysis_page():
@@ -481,10 +491,10 @@ def spending_analysis_page():
 
     Allows users to analyze spending patterns and displays a chart if available.
     """
-    st.title("📊 Spending Insights Dashboard")
+    st.title(" Spending Insights Dashboard")
     st.caption("Try queries like: `Analyze user 3` or `Spending pattern for user 5`")
 
-    prompt = st.text_input("🔍 Enter your spending query:")
+    prompt = st.text_input(" Enter your spending query:")
     if st.button("Analyze Spending"):
         user_id = extract_user_id(prompt)
         if not user_id:
@@ -505,7 +515,7 @@ def spending_analysis_page():
                 Chart is available at: workflows/reports/user{user_id}-spending_chart.png
                 """
             )
-            st.markdown("### 📈 Gemini’s Response")
+            st.markdown("### Gemini’s Response")
             st.success(gemini_response.text)
 
             # Display chart if generated
@@ -519,10 +529,10 @@ def financial_advice_page():
 
     Provides personalized financial advice based on user data.
     """
-    st.title("💡 Smart Financial Advice")
+    st.title(" Smart Financial Advice")
     st.caption("Try queries like: `Advice for user 2` or `Financial tips for user 4`")
 
-    prompt = st.text_input("🔍 Enter your advice query:")
+    prompt = st.text_input(" Enter your advice query:")
     if st.button("Get Advice"):
         user_id = extract_user_id(prompt)
         if not user_id:
@@ -542,7 +552,7 @@ def financial_advice_page():
                 - A motivational closing statement
                 """
             )
-            st.markdown("### 💡 Gemini’s Response")
+            st.markdown("### Gemini’s Response")
             st.success(gemini_response.text)
 
 def future_spending_page():
@@ -551,10 +561,10 @@ def future_spending_page():
 
     Predicts next month's spending based on historical data.
     """
-    st.title("🔮 Future Spending Forecast")
+    st.title("Future Spending Forecast")
     st.caption("Try queries like: `Predict spending for user 1`")
 
-    prompt = st.text_input("🔍 Enter your prediction query:")
+    prompt = st.text_input(" Enter your prediction query:")
     if st.button("Predict Spending"):
         user_id = extract_user_id(prompt)
         if not user_id:
@@ -574,7 +584,7 @@ def future_spending_page():
                 - A planning tip for the user
                 """
             )
-            st.markdown("### 🔮 Gemini’s Response")
+            st.markdown("### Gemini’s Response")
             st.success(gemini_response.text)
 
 def record_transaction_page():
@@ -583,10 +593,10 @@ def record_transaction_page():
 
     Allows users to log transactions with natural language input.
     """
-    st.title("💸 Transaction Recorder")
+    st.title("Transaction Recorder")
     st.caption("Enter something like: `User 7 spent 250 ETB for groceries via CBE today`")
 
-    prompt = st.text_input("🔍 Enter transaction details:")
+    prompt = st.text_input(" Enter transaction details:")
     if st.button("Record Transaction"):
         with st.spinner("Recording transaction..."):
             gemini_response = client.models.generate_content(
@@ -600,7 +610,7 @@ def record_transaction_page():
                 - Emojis for excitement
                 """
             )
-            st.markdown("### 💸 Gemini’s Response")
+            st.markdown("### Gemini’s Response")
             st.success(gemini_response.text)
 
 def transaction_receipt_page():
@@ -609,14 +619,14 @@ def transaction_receipt_page():
 
     Allows users to generate a PDF receipt for a specific transaction ID.
     """
-    st.title("📜 Transaction Receipt Generator")
-    st.caption("Enter something like: `Transaction receipt 123`")
+    st.title(" Transaction Receipt Generator")
+    st.caption("Enter something like: `Generate a transaction receipt transaction id 123`")
 
-    prompt = st.text_input("🔍 Enter receipt query:")
+    prompt = st.text_input(" Enter receipt query:")
     if st.button("Generate Receipt"):
         transaction_id = extract_transaction_id(prompt)
         if not transaction_id:
-            st.error("Please provide a transaction ID (e.g., `transaction receipt 123`).")
+            st.error("Please provide a transaction ID (e.g., `Generate a transaction receipt transaction id 123`).")
             return
 
         with st.spinner("Generating receipt..."):
@@ -626,7 +636,7 @@ def transaction_receipt_page():
                 contents=f"""
                 Based on the prompt: '{prompt}'. Generate a receipt for transaction ID {transaction_id}. Provide a response in markdown format with:
                 - A confirmation header
-                - A table summarizing receipt details (Transaction ID, User ID, Date, Amount, Payment Method, Description)
+                - A table summarizing receipt details (User full name, Transaction ID, User ID, Date, Amount, Payment Method, Description)
                 - The file path where the PDF is saved
                 - Emojis for professionalism
                 File saved at: workflows/receipts/userX-transaction{transaction_id}-receipt.pdf
@@ -636,11 +646,15 @@ def transaction_receipt_page():
             st.success(gemini_response.text)
 
             # Provide download link for PDF
-            if "File saved at: " in gemini_response.text:
-                file_path = gemini_response.text.split("File saved at: ")[1].strip()
-                if os.path.exists(file_path):
-                    with open(file_path, "rb") as f:
-                        st.download_button(f"Download {os.path.basename(file_path)}", f, os.path.basename(file_path))
+            receipt_path = f"workflows/receipts/userX-transaction{transaction_id}-receipt.pdf"
+            if os.path.exists(receipt_path):
+                with open(receipt_path, "rb") as file:
+                    st.download_button(
+                        label="Download Receipt PDF",
+                        data=file,
+                        file_name=os.path.basename(receipt_path),
+                        mime="application/pdf"
+                    )
 
 # --- Pages of the App ---
 PAGES = {
