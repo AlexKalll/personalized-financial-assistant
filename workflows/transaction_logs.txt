@@ -1,0 +1,1 @@
+2025-05-28 10:36:49.810718 | User: 4 | Date: 2025-05-28 | Amount: $250.0 | Payment: CBE | Desc: groceries
