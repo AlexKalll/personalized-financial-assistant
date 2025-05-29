@@ -17,7 +17,7 @@ from db_connection import create_connection
 from config import GEMINI_API_KEY, DB_CONFIG, FILE_PATHS
 from save_log import log_transaction
 
-# Gemini Setup
+# gemini Setup
 client = genai.Client(api_key=GEMINI_API_KEY)
 model_id = "gemini-1.5-flash"
 
@@ -26,30 +26,12 @@ def retrieve_user_data(user_id: int) -> Union[Dict[str, Union[int, str, float, N
     """
     Retrieves a user's profile from the database, including personal details and salary.
 
-    This function queries the Users table for user information and joins with the Budgets table
-    to fetch the salary for May. It handles non-serializable types (datetime, Decimal) for
-    compatibility with JSON serialization.
-
     Args:
         user_id (int): The unique identifier of the user.
 
     Returns:
         dict: A dictionary containing user details (user_id, fname, lname, age, gender,
               occupation, email, created_at, salary) or an error message if the user is not found.
-
-    Example:
-        >>> retrieve_user_data(1)
-        {
-            'user_id': 1,
-            'fname': 'John',
-            'lname': 'Doe',
-            'age': 30,
-            'gender': 'Male',
-            'occupation': 'Engineer',
-            'email': 'john.doe@example.com',
-            'created_at': '2025-03-01T12:00:00',
-            'salary': 50000.0
-        }
     """
     db = create_connection()
     if not db:
@@ -59,7 +41,7 @@ def retrieve_user_data(user_id: int) -> Union[Dict[str, Union[int, str, float, N
         SELECT u.user_id, u.fname, u.lname, u.age, u.gender, u.occupation, u.email, u.created_at, b.salary
         FROM Users u
         LEFT JOIN Budgets b ON u.user_id = b.user_id
-        WHERE u.user_id = %s AND (b.month = 'May' OR b.month IS NULL)
+        WHERE u.user_id = %s AND b.month = 'May' 
     """, (user_id,))
     user_data = cursor.fetchone()
     cursor.close()
@@ -68,7 +50,6 @@ def retrieve_user_data(user_id: int) -> Union[Dict[str, Union[int, str, float, N
     if not user_data:
         return {"error": "User not found."}
 
-    # Convert non-serializable types
     return {
         "user_id": user_data["user_id"],
         "fname": user_data["fname"],
@@ -77,8 +58,8 @@ def retrieve_user_data(user_id: int) -> Union[Dict[str, Union[int, str, float, N
         "gender": user_data["gender"],
         "occupation": user_data["occupation"],
         "email": user_data["email"],
-        "created_at": user_data["created_at"].isoformat() if user_data["created_at"] else None,
-        "salary": float(user_data["salary"]) if user_data["salary"] else None
+        "created_at": user_data["created_at"].isoformat(),
+        "salary": float(user_data["salary"]) 
     }
 
 def analyze_spending(user_id: int) -> Union[Dict, Dict[str, str]]:
@@ -390,7 +371,7 @@ def generate_transaction_receipt(transaction_id: int) -> Dict[str, Union[int, fl
     }
 
 # --- Function Declarations for Gemini ---
-function_declarations = [
+functions = [
     retrieve_user_data,
     analyze_spending,
     generate_financial_advice,
@@ -399,48 +380,30 @@ function_declarations = [
     generate_transaction_receipt
 ]
 
-# --- Gemini Config ---
+# --- Configuration and tools for Gemini ---
 config = GenerateContentConfig(
     system_instruction="""
-    You are a cutting-edge financial assistant powered by real-time data from a MySQL database. Today is 2025-05-27. Your mission is to deliver precise, engaging, and personalized financial insights that empower users to make smart decisions. Use the provided tools to fetch and analyze data, and present responses in a visually appealing markdown format with emojis, tables, and bullet points where appropriate. Ensure answers are concise, conversational, and tailored to the user's query, making complex financial concepts accessible and exciting for all audiences. When generating receipts, confirm the file path in your response. Always aim to captivate and inform!
+    You are an expert financial assistant powered by real-time data from a MySQL database. Your task is to deliver precise, engaging, and personalized financial insights that empower users to make smart decisions. Use the provided tools to fetch and analyze data, analyze spending patterns, predict future spending, generate transaction receipts and provide tailored financial advice. Your responses should be informative and present responses in a visually appealing markdown format with emojis, tables, and bullet points where appropriate. Ensure answers conversational, and tailored to the user's query. 
     """,
-    tools=function_declarations
+    tools = functions
 )
 
 # --- Helper Functions ---
 def extract_user_id(text: str) -> Optional[int]:
-    """
-    Extracts a user ID from a text string using regex.
-
-    Args:
-        text (str): The input text containing a user ID.
-
-    Returns:
-        Optional[int]: The extracted user ID or None if not found.
-    """
-    match = re.search(r"\buser\s*(?:id)?\s*(\d+)", text, re.IGNORECASE)
-    return int(match.group(1)) if match else None
-
+    id = re.search(r"\d+", text)
+    
+    if id:
+        return int(id.group(0))
+    return None
+    
 def extract_transaction_id(text: str) -> Optional[int]:
-    """
-    Extracts a transaction ID from a text string using regex.
-
-    Args:
-        text (str): The input text containing a transaction ID.
-
-    Returns:
-        Optional[int]: The extracted transaction ID or None if not found.
-    """
-    match = re.search(r"\btransaction\s*(?:id)?\s*(\d+)", text, re.IGNORECASE)
-    return int(match.group(1)) if match else None
+    tr_id = re.search(r"\d+", text)
+    if tr_id:
+        return int(tr_id.group(0))
+    return None
 
 # --- Streamlit Pages ---
 def home():
-    """
-    Renders the home page of the financial assistant.
-
-    Displays a welcome message and an overview of available features.
-    """
     st.title("Welcome to Real-Time Financial Assistant")
     st.markdown("""
     ### This assistant helps you:
@@ -455,19 +418,15 @@ def home():
     """)
 
 def user_profile_page():
-    """
-    Renders the user profile page.
-
-    Allows users to query a profile by ID and displays the AI-generated response.
-    """
+    
     st.title("👤 User Profile Explorer")
-    st.caption("Try queries like: `Show me the profile of user 1` or `Details of user 3`")
+    st.caption("Try queries like: `show me the profile of user 1` or `details of user id 3`")
 
     prompt = st.text_input("Enter a query to show a user profile:")
     if st.button("Show Profile"):
         user_id = extract_user_id(prompt)
         if not user_id:
-            st.error("Could not extract user ID. Try: `show user 2`.")
+            st.error("Could not extract user ID. Try: `details user id 2`.")
             return
 
         with st.spinner("Fetching profile..."):
@@ -476,14 +435,14 @@ def user_profile_page():
                 config=config,
                 contents=f"""
                 Based on the prompt: '{prompt}'. Display the profile of user {user_id} in a vibrant, organized format. Use markdown with:
-                - A header with the user's full name
-                - A table for details (ID, Age, Gender, Occupation, Email, Account Created, Salary)
+                - A header with the user's full name 
+                - A table for details (User Name, User ID, Age, Gender, Occupation, Email, Account Created, Salary)
                 - Emojis for visual appeal
-                - A brief welcome message
+                - A brief summary of the user's financial health
                 """
             )
             st.markdown("### Gemini’s Response")
-            st.info(gemini_response.text)
+            st.success(gemini_response.text)
 
 def spending_analysis_page():
     """
@@ -491,7 +450,7 @@ def spending_analysis_page():
 
     Allows users to analyze spending patterns and displays a chart if available.
     """
-    st.title(" Spending Insights Dashboard")
+    st.title(" Spending Analyser ")
     st.caption("Try queries like: `Analyze user 3` or `Spending pattern for user 5`")
 
     prompt = st.text_input(" Enter your spending query:")
